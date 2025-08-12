@@ -2,7 +2,7 @@ import csv
 from datetime import datetime, date
 from collections import OrderedDict
 import matplotlib.pyplot as plt
-
+from Forecaster import Forecaster
 
 # Read the CSV file
 with open('Data/Sales daily data merged.csv', mode='r') as file:
@@ -115,36 +115,54 @@ for group, date_dict in temp_dict.items():
    sorted_dates = sorted(date_dict.items())
    for date, qty in sorted_dates:
        qty_per_group[group].append([date.strftime('%d/%m/%y'), qty])
+# ---------------------------------------------------------------------------------
 
-print(qty_per_group)
-# Store with date object as key for proper sorting
-#Creates bar chart of product groups each day
-#dates = list(Sum_of_Qty_Sold.keys())
-#units = list(data_list["Group"].values())
-#plt.bar(range(len(Sum_of_Qty_Sold)), units, tick_label=dates)
-#plt.show()
+# all_predictions = {}
+# window_size = 4
+# for grp_names, sales_list in qty_per_group.items():
+#     if len(sales_list) <= window_size:
+#         print(f"Skipping group: {grp_names} as not enough data points available")
+#         continue
+#     forecaster  = Forecaster(grp_names, sales_list)
+#     prediction = forecaster .calculate_wma(7)
+#     all_predictions[grp_names] = prediction
 
+# Define your settings
+window_size = 7
+days_to_predict = 5
 
-#Creates bar chart of units each day
-#dates = list(Sum_of_Qty_Sold.keys())
-#units = list(Sum_of_Qty_Sold.values())
-#plt.bar(range(len(Sum_of_Qty_Sold)), units, tick_label=dates)
-#plt.show()
+print("--- Starting Main Process ---")
+print(f"Using a window size of {window_size} days.\n")
 
-# Print how many units each day
-#print("\n=== Sales by Date (Ordered) ===")
-#for date_obj, total in Sum_of_Qty_Sold.items():
-    #print(f"{date_obj.strftime('%d/%m/%y')}: {total} units")
+# Main loop to iterate through all product groups
+for grp_name, sales_list in qty_per_group.items():
 
-#print(f"\nTotal: {sum(Sum_of_Qty_Sold.values())} units")
+    print(f"--- Checking Group: {grp_name} ---")
 
-# ----------------------------------------------------------------------------------------
-# OOP forcasting model - weighted moving average
-#-----------------------------------------------------------------------------------------
+    # Check if there is enough data
+    if len(sales_list) <= window_size:
+        print(f"Result: SKIPPED. Only {len(sales_list)} data points available.")
+        print("-" * 35)
+        continue  # Move to the next group
 
-class Forecaster:
-    def __init__(self, product_name, sales_data ):
-        self.product_des = product_name
-        self.sales_data = sales_data
-    def weight_moving_average(self,weight):
-        weighted_sum = weight
+    # If the code reaches here, the group has enough data
+    print("Result: OK. Proceeding with forecast.")
+
+    # 1. Create the Forecaster object
+    forecaster = Forecaster(grp_name, sales_list)
+
+    # 2. Generate and display the future forecast
+    print(f"Predicting next {days_to_predict} days...")
+    future_predictions = forecaster.predict_future_sequence(days_to_predict, window_size)
+
+    if future_predictions:
+        for i, forecast_value in enumerate(future_predictions):
+            print(f"  - Forecast for Day {i + 1}: {forecast_value:.2f} units")
+
+    # Optional: You could also generate and show the plot here
+    # all_historical_forecasts = forecaster.generate_all_forecasts(window_size)
+    # forecaster.plot_forecast(window_size, all_historical_forecasts)
+
+    print("-" * 35)
+
+print("\n--- Main Process Complete ---")
