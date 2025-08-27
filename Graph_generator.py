@@ -15,7 +15,7 @@
 #prevent data overlap
 #plt.gcf().autofmt_xdate()
 
-# if want to use a line graph
+# if I want to use a line graph
 # plt.plot(x, y)
 # plt.xlabel("X-axis")        # Label for the X-axis
 # plt.ylabel("Y-axis")        # Label for the Y-axis
