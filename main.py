@@ -66,7 +66,6 @@ for product in data_list:
     if "Group" in product:  # Check if key exists
         group_name = product["Group"]
         group_dict[group_name] = group_dict.get(group_name, 0) + 1
-
 #calculate total sold each day of a partiulcar group
 temp_dict = {}
 for item in data_list:
@@ -115,6 +114,8 @@ for group, date_dict in temp_dict.items():
    sorted_dates = sorted(date_dict.items())
    for date, qty in sorted_dates:
        qty_per_group[group].append([date.strftime('%d/%m/%y'), qty])
+
+
 # ---------------------------------------------------------------------------------
 
 # all_predictions = {}
