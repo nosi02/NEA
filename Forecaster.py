@@ -84,5 +84,23 @@ class Forecaster: #manage sales data for single product group
             temp_list.pop(0)
             temp_list.append(["Future Day", next_value])
         return future_forecasts
+    def calculate_accuracy(self,window_size):
+        historical_forecasts = self.generate_all_forecasts(window_size)
+        actual_sales_data = self.sales_list[window_size:]
+        if len(historical_forecasts) == 0:
+            return {'MAE': None, 'RMSE': None} # MAE = mean absolute error RMSE = root mean squared error
+        total_absolute_error = 0
+        total_squared_error = 0
+        combined = zip(historical_forecasts,actual_sales_data) #combining into one list to iterate through
+        for actual_data, forecast_data in combined:
+            actual_qty = actual_data[1]
+            forecast_qty = forecast_data[1]
+            error = actual_qty - forecast_qty
+            total_absolute_error += abs(error)
+            total_squared_error += error ** 2
+        n = len(historical_forecasts)
+        mae = total_absolute_error/n
+        rmse = (total_squared_error/n) ** 0.5
+        return {'MAE': mae, 'RMSE': rmse}
 
 
