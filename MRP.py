@@ -1,73 +1,5 @@
-import csv
 from Forecaster import Forecaster
-from main import qty_per_group, data_list, group_list
 from datetime import datetime, timedelta
-with open('Data/Product Group.csv', mode='r') as file:
-    reader = csv.DictReader(file)
-    inventory_list = {}
-    for product in reader:
-        group_name = product['Product groups']
-        inventory_value = int(product["QTY"])
-        inventory_list[group_name] = inventory_list.get(group_name, 0) + inventory_value
-default_lead_time = 3
-default_safety_stock = 2
-all_product_groups = list(qty_per_group.keys())
-lead_times = {}
-for group in all_product_groups:
-    lead_times[group] = default_lead_time
-# if I need to overwrite can just do lead_times['Skin Care'] = 14 or something
-safety = {}
-for group in all_product_groups:
-    safety[group] = default_safety_stock
-
-all_forecasts = {}
-window_size = 7
-days_to_predict = 7 # Plan 7 days into the future
-for group_name, sales_data in qty_per_group.items():
-    if len(sales_data) > window_size:
-        forecaster = Forecaster(group_name, sales_data)
-        future_forecast = forecaster.predict_future_sequence(days_to_predict, window_size)
-        all_forecasts[group_name] = future_forecast
-
-# calcualte total group sales
-group_sales_totals = {}
-for item in data_list:
-    if "Group" in item:
-        qty_str = item.get('QTY Sold', '').strip()
-        if qty_str == '':
-            qty = 0
-        else:
-            qty = int(qty_str)
-        group_sales_totals[item["Group"]] = group_sales_totals.get(item["Group"], 0) + qty
-
-#calculate total group sales
-product_sales_totals = {}
-for product in data_list:
-    if "Group" in product:
-        prd_name = product["Description"]
-        if "Group" in product:
-            qty_str = product.get('QTY Sold', '').strip()
-            if qty_str == '':
-                qty = 0
-            else:
-                qty = int(qty_str)
-        product_sales_totals[prd_name] = product_sales_totals.get(prd_name, 0) + qty
-
-sales_mix = {}
-for row in group_list:
-    product_name = row['Products']
-    group_name = row['Product groups']
-    product_total = product_sales_totals.get(product_name, 0)
-    group_total = group_sales_totals.get(group_name, 0)
-    if group_total == 0:
-        percentage = 0
-    else:
-        percentage = product_total / group_total
-    if group_name in sales_mix:
-        sales_mix[group_name][product_name] = percentage
-    else:
-        sales_mix[group_name] = {}
-        sales_mix[group_name][product_name] = percentage
 
 class MRP:
     def __init__(self, lead_time, forecasts, inventory, safety_stocks, period, sales_mix):
@@ -124,15 +56,3 @@ class MRP:
                     cooldown = day_index + period_time #not place another order until after period time over
         return planned_orders
 
-# --- Run the MRP Planner ---
-
-# 1. Create the planner instance, giving it all the prepared data
-mrp_engine = MRP(lead_times, all_forecasts, inventory_list, safety)
-
-# 2. Run the algorithm to get your final procurement plan
-procurement_plan = mrp_engine.order_plan()
-
-# 3. Display the results
-print("\n--- Recommended Order List---")
-for order in procurement_plan:
-    print(order)
