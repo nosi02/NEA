@@ -2,7 +2,7 @@ from Forecaster import Forecaster
 from datetime import datetime, timedelta
 
 class MRP:
-    def __init__(self, lead_time, forecasts, inventory, safety_stocks, period, sales_mix):
+    def __init__(self, lead_time: object, forecasts: object, inventory: object, safety_stocks: object, period: object, sales_mix: object) -> object:
         self.inventory = inventory
         self.lead_times = lead_time
         self.safety_stock = safety_stocks

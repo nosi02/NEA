@@ -2,6 +2,7 @@
 # OOP forcasting model - weighted moving average
 #-----------------------------------------------------------------------------------------
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 from datetime import datetime, date
 class Forecaster: #manage sales data for single product group
     def __init__(self, group_name ,grp_sales_data):
@@ -64,15 +65,17 @@ class Forecaster: #manage sales data for single product group
         forecast_dates = dates[window_size:]
         real_qty = quantity[window_size:]
         #line graph for predicted sales
-        plt.plot(forecast_dates, real_qty,label='Actual Sales' )
+        fig = Figure(figsize=(8, 4), dpi=100)
+        ax = fig.add_subplot(111)
+        ax.plot(forecast_dates, real_qty,label='Actual Sales' )
         #line graph for real sales
-        plt.plot(forecast_dates, forecast_qty,label='Forecasted Sales')
-        plt.xlabel("Date")  # Label for the X-axis
-        plt.ylabel("Quantity Sold")  # Label for the Y-axis
-        plt.title(f"Line graph of predicted sales vs real sales data for {self.name} in a {window_size} window")# Chart title
-        plt.legend()
-        plt.gcf().autofmt_xdate()
-        plt.show()
+        ax.plot(forecast_dates, forecast_qty,label='Forecasted Sales')
+        ax.set_xlabel("Date")  # Label for the X-axis
+        ax.set_ylabel("Quantity Sold")  # Label for the Y-axis
+        ax.set_title(f"Line graph of predicted sales vs real sales data for {self.name} in a {window_size} window")# Chart title
+        ax.legend()
+        fig.autofmt_xdate()
+        return fig
     def predict_future_sequence(self, num_days, window_size):
         temp_list = self.sales_list[-window_size:]
         future_forecasts = []

@@ -39,7 +39,6 @@
     # plt.gca().xaxis.set_major_formatter(date_format)
 
     # Set the locator to show a tick mark (e.g., every 5 days)
-    # Use DayLocator, WeekLocator, or MonthLocator as needed
     #plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=5))
 
     # Rotate date labels automatically to prevent overlap
