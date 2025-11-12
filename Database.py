@@ -7,12 +7,20 @@ def get_sales_data_by_group(group_name):
     cursor_obj.execute(""" SELECT Sales.SaleDate, Sales.QuantitySold FROM Sales
     INNER JOIN Products ON Products.ProductID = Sales.ProductID
     INNER JOIN ProductGroups ON Products.GroupID = ProductGroups.GroupID
-    WHERE ProductGroups.GroupName = ?
-    ORDER BY Sales.SaleDate """, (group_name,)
-                       )# joining the two tables together by linking GroupID #? is a placeholder to pass variables
+    WHERE ProductGroups.GroupName = ? """, (group_name,))# joining the two tables together by linking GroupID #? is a placeholder to pass variables
     results = cursor_obj.fetchall() # creating a list of tuple of result
     connection.close()
-    return results
+    #Sort the data by date
+    sorted_data = []
+    for date_str,qty in results:
+        date_obj = datetime.strptime(date_str, '%d/%m/%y')
+        sorted_data.append((date_obj, qty))
+    sorted_data.sort()
+    #convert dates back to strings
+    final_data_list = []
+    for date_obj, qty in sorted_data:
+        final_data_list.append((date_obj.strftime('%d/%m/%y'), qty))
+    return final_data_list
 
 def get_inventory_levels():
     inventory_dict = {}
@@ -118,9 +126,9 @@ def update_mrp_parameters(group_name, new_lead_time, new_safety_stock):
 def get_all_products():
     connection = sqlite3.connect('Data/project_data.db') #connecting to database file
     cursor_obj = connection.cursor()
-    cursor_obj.execute(""" SELECT * FROM Products
-    INNER JOIN Products ON Products.GroupID = ProductGroups.GroupID
-    ORDER BY Products.ProductID """)
+    cursor_obj.execute(""" SELECT Products.ProductName, ProductGroups.GroupName FROM Products
+    INNER JOIN ProductGroups ON Products.GroupID = ProductGroups.GroupID
+    ORDER BY Products.ProductName """)
     results = cursor_obj.fetchall() # creating a list of tuple of result
     connection.close()
     return results
@@ -140,7 +148,7 @@ def add_new_product(name, group_name):
         cursor_obj.execute(insert_product, (name, group_id))
         # commit() to save any changes
         connection.commit()
-        print(f"Successfully updated parameters for {group_name}")
+        return f"Successfully updated parameters for {group_name}"
     connection.close()
 
 def delete_product(product_name):
@@ -149,8 +157,64 @@ def delete_product(product_name):
     delete = """ DELETE FROM PRODUCTS WHERE ProductName = ?"""
     cursor_obj.execute(delete,(product_name,))
     connection.commit()
+    connection.close()
+    return f"Successfully deleted {product_name}"
+
+def get_top_selling_products(limit = 5):
+    connection = sqlite3.connect('Data/project_data.db')  # connecting to database file
+    cursor_obj = connection.cursor()
+    top_5 = (""" SELECT Products.ProductName, SUM(Sales.QuantitySold) FROM Sales
+            INNER JOIN Products ON Products.ProductID = Sales.ProductID
+            GROUP BY Products.ProductName
+            ORDER BY SUM(Sales.QuantitySold)  DESC 
+            LIMIT  ? """)
+    cursor_obj.execute(top_5, (limit,))
+    results = cursor_obj.fetchall()  # creating a list of tuple of result
+    connection.close()
+    return results
+
+def get_bottom_selling_products(limit = 5):
+    connection = sqlite3.connect('Data/project_data.db')  # connecting to database file
+    cursor_obj = connection.cursor()
+    top_5 = (""" SELECT Products.ProductName, SUM(Sales.QuantitySold) FROM Sales
+            INNER JOIN Products ON Products.ProductID = Sales.ProductID
+            GROUP BY Products.ProductName
+            ORDER BY SUM(Sales.QuantitySold) ASC 
+            LIMIT  ? """)
+    cursor_obj.execute(top_5, (limit,))
+    results = cursor_obj.fetchall()  # creating a list of tuple of result
+    connection.close()
+    return results
+
+def get_sales_for_last_n_days(days=7):
+    connection = sqlite3.connect('Data/project_data.db')  # connecting to database file
+    cursor_obj = connection.cursor()
+    query = ("""WITH ConvertedSales AS 
+             (SELECT ('20' || substr(SaleDate, 7, 2) || '-' 
+             || substr(SaleDate, 4, 2) || '-' || substr(SaleDate, 1, 2)) AS RealDate,
+             QuantitySold  FROM Sales)
+             SELECT strftime('%w', RealDate), SUM(QuantitySold)
+             FROM ConvertedSales
+             WHERE RealDate >= date('now', '-7 days')
+             GROUP BY strftime('%w', RealDate)
+             ORDER BY strftime('%w', RealDate) ASC; """) #will need to refernce
+    cursor_obj.execute(query)
     results = cursor_obj.fetchall()
     connection.close()
+    day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    sales_by_day = {}
+    for day in day_names:
+        sales_by_day[day] = 0
+    for day_index, total_qty in results:
+        if day_index is None:
+            continue
+        day_name = day_names[int(day_index)]
+        if total_qty is not None:
+            sales_by_day[day_name] = total_qty
+    labels = list(sales_by_day.keys())
+    data = list(sales_by_day.values())
+    return labels, data
+
 
 
 
