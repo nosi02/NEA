@@ -1,29 +1,57 @@
-# Store with date object as key for proper sorting
-#Creates bar chart of product groups each day
-#dates = list(Sum_of_Qty_Sold.keys())
-#units = list(data_list["Group"].values())
-#plt.bar(range(len(Sum_of_Qty_Sold)), units, tick_label=dates)
-#plt.show()
+# import matplotlib.pyplot as plt
+# import matplotlib.dates as mdates
+# import Database as db
 
+# def plot_total_sales_chart():
+#     """
+#     Generates and displays a bar chart of total sales per day for all products.
+#     """
+#     print("Generating total sales chart...")
 
-#Creates bar chart of units each day
-#dates = list(Sum_of_Qty_Sold.keys())
-#units = list(Sum_of_Qty_Sold.values())
-#plt.bar(range(len(Sum_of_Qty_Sold)), units, tick_label=dates)
-#plt.show()
+    # 1. Get data from the database
+    # This function returns a dict like {<date_obj>: total_qty, ...}
+    # sales_data = db.get_total_sales_per_day()
+    #
+    # if not sales_data:
+    #     print("No sales data found to plot.")
+    #     return
 
-#prevent data overlap
-#plt.gcf().autofmt_xdate()
+    # 2. Prepare data for matplotlib
+    # Sort the dictionary by date
+    #sorted_items = sorted(sales_data.items())
 
-# if I want to use a line graph
-# plt.plot(x, y)
-# plt.xlabel("X-axis")        # Label for the X-axis
-# plt.ylabel("Y-axis")        # Label for the Y-axis
-# plt.title("Any suitable title")  # Chart title
-# plt.show()
-# Print how many units each day
-#print("\n=== Sales by Date (Ordered) ===")
-#for date_obj, total in Sum_of_Qty_Sold.items():
-    #print(f"{date_obj.strftime('%d/%m/%y')}: {total} units")
+    # Unpack the dates and quantities into separate lists
+    # dates = [item[0] for item in sorted_items]
+    # units = [item[1] for item in sorted_items]
 
-#print(f"\nTotal: {sum(Sum_of_Qty_Sold.values())} units")
+    # 3. Create the bar chart
+    # plt.figure(figsize=(15, 7))  # Make the figure wider for readability
+    # plt.bar(dates, units, color='royalblue', width=0.9)
+    #
+    # plt.xlabel("Date")
+    # plt.ylabel("Total Quantity Sold")
+    # plt.title("Total Unit Sales Per Day (All Products)")
+
+    # --- Format the x-axis to show dates nicely ---
+
+    # Set the formatter to display dates as 'dd/mm/yy'
+    # date_format = mdates.DateFormatter('%d/%m/%y')
+    # plt.gca().xaxis.set_major_formatter(date_format)
+
+    # Set the locator to show a tick mark (e.g., every 5 days)
+    #plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=5))
+
+    # Rotate date labels automatically to prevent overlap
+    #plt.gcf().autofmt_xdate()
+
+    #plt.grid(axis='y', linestyle='--', alpha=0.7)
+    #plt.tight_layout()  # Adjust plot to prevent labels being cut off
+
+    # Finally, display the plot
+    #plt.show()
+
+# --- To use this ---
+# Call this function from your main script to show the chart
+#
+# if __name__ == "__main__":
+#     plot_total_sales_chart()
