@@ -2,13 +2,14 @@ from Forecaster import Forecaster
 from datetime import datetime, timedelta
 
 class MRP:
-    def __init__(self, lead_time: object, forecasts: object, inventory: object, safety_stocks: object, period: object, sales_mix: object) -> object:
+    def __init__(self, lead_time: object, forecasts: object, inventory: object, safety_stocks: object, period: object, sales_mix: object, product_costs ) -> object:
         self.inventory = inventory
         self.lead_times = lead_time
         self.safety_stock = safety_stocks
         self.forecast_sales = forecasts
         self.period_length = period
         self.sales_mix = sales_mix
+        self.product_costs = product_costs
     def order_plan(self):
         planned_orders = []
         today = datetime.now()
@@ -41,12 +42,19 @@ class MRP:
                     product_mix = self.sales_mix[grp_name]
                     for product_name, percentage in product_mix.items():
                         individual_quantity = round(quantity_to_order * percentage)
+                        cost_info = self.product_costs.get(product_name, {'supplier': 'Unknown', 'cost': 0})
+                        unit_cost = cost_info['cost']
+                        supplier_name = cost_info['supplier']
+                        total_estimated_cost = individual_quantity * unit_cost
                         if individual_quantity <= 0: # Avoid placing tiny orders
                             continue
                         individual_order_list = {
                             'Product': product_name,
                             'QuantityToOrder': individual_quantity,
                             'ProductGroup': grp_name,
+                            'Supplier': supplier_name,
+                            'UnitCost': unit_cost,
+                            'TotalCost': total_estimated_cost,
                             'OrderPlacementDate': order_placement_date.strftime('%Y-%m-%d'),
                             'ExpectedArrivalDate': expected_arrival_date.strftime('%Y-%m-%d')
                          }

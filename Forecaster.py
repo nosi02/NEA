@@ -58,18 +58,26 @@ class Forecaster: #manage sales data for single product group
         quantity = []
         forecast_qty = []
         for item in self.sales_list:
-            dates.append(datetime.strptime(item[0], '%d/%m/%y'))
-            quantity.append(item[1])
+            try:# Ensure date format matches data (dd/mm/yy)
+                dates.append(datetime.strptime(item[0], '%d/%m/%y'))
+                quantity.append(item[1])
+            except (ValueError, TypeError):
+                continue
         for i in forward:
             forecast_qty.append(i[1])
         forecast_dates = dates[window_size:]
         real_qty = quantity[window_size:]
+        #handeling any potential errors
+        min_len = min(len(forecast_dates), len(real_qty), len(forecast_qty))
+        forecast_dates = forecast_dates[:min_len]
+        real_qty = real_qty[:min_len]
+        forecast_qty = forecast_qty[:min_len]
         #line graph for predicted sales
         fig = Figure(figsize=(8, 4), dpi=100)
         ax = fig.add_subplot(111)
         ax.plot(forecast_dates, real_qty,label='Actual Sales' )
         #line graph for real sales
-        ax.plot(forecast_dates, forecast_qty,label='Forecasted Sales')
+        ax.plot(forecast_dates, forecast_qty,label='Forecasted Sales',linestyle='--')
         ax.set_xlabel("Date")  # Label for the X-axis
         ax.set_ylabel("Quantity Sold")  # Label for the Y-axis
         ax.set_title(f"Line graph of predicted sales vs real sales data for {self.name} in a {window_size} window")# Chart title
