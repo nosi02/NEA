@@ -11,15 +11,24 @@ import threading
 import traceback
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+from tkinter import messagebox
 
 
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
+        try:
+            db.create_connection() #testing the connection
+        except Exception as e:
+            #show popup so inform user
+            messagebox.showerror("Fatal Error", f"Could not load database.\n\nReason: {e}")
+            self.destroy()#destoy app
+            return
         self.all_group_names = db.get_all_group_names()
         self.inventory_list = db.get_inventory_levels()
         self.lead_times, self.safety_stocks = db.get_mrp_parameters()
         self.sales_mix = db.get_sales_mix()
+        self.product_costs = db.get_product_costs()
         self.plot_canvas = None
         # Creating a Window
         self.title("Inventory Manager")
@@ -39,7 +48,8 @@ class App(ctk.CTk):
         # Create a 2-column layout
         forecast_tab.grid_columnconfigure(0, weight=1)  # Control panel column
         forecast_tab.grid_columnconfigure(1, weight=3)  # Chart column
-        forecast_tab.grid_rowconfigure(0, weight=1)  # Full height for both
+        forecast_tab.grid_rowconfigure(0, weight=1) # Full height for both
+        forecast_tab.grid_rowconfigure(1, weight=1)#weekly chart
 
         #creating a frame
         self.main_frame = ctk.CTkFrame(forecast_tab,width=200,height=200,corner_radius=10,bg_color="transparent")
@@ -73,6 +83,10 @@ class App(ctk.CTk):
         self.accuracy_label = ctk.CTkLabel(self.main_frame, text= "Accuracy (MAE): N/A | (RMSE): N/A", font=("Arial", 12), fg_color="transparent")
         self.accuracy_label.grid(row=5, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
 
+        # Make a button
+        self.refresh_button = ctk.CTkButton(self.main_frame, text="Refresh All Data", command=self.refresh_all_data)
+        self.refresh_button.grid(row=4, column=0, columnspan=2, pady=10, padx=10, sticky="ew")
+
         #Make Alert Panel
         self.alert_panel = ctk.CTkTextbox(forecast_tab)
         self.alert_panel.grid(row=6, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
@@ -101,11 +115,11 @@ class App(ctk.CTk):
 
         #Empty Frame where I will add a matplotlib chart
         self.chart_frame = ctk.CTkFrame(forecast_tab, width=200, height=200, corner_radius=10, bg_color="transparent")
-        self.chart_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+        self.chart_frame.grid(row=0, column=1,rowspan=2, padx=10, pady=10, sticky="nsew")
 
         #Second Chart for weekly sales
         self.weekly_chart_frame = ctk.CTkFrame(forecast_tab)
-        self.weekly_chart_frame.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
+        self.weekly_chart_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
         weekday_labels, sales_totals = db.get_sales_for_last_n_days()
         if sales_totals:  # Only plot if we have data
             #Create a NEW Figure object
@@ -155,7 +169,7 @@ class App(ctk.CTk):
         #Frame for the table
         mrp_table_frame = ctk.CTkFrame(mrp_tab)
         mrp_table_frame.pack(pady=10, padx=10, fill="both", expand=True)
-        mrp_columns = ("Product", "Product Group", "Quantity", "Order Date", "Arrival Date")
+        mrp_columns = ("Product", "Quantity", "Product Group", "Supplier", "Unit Cost", "Total Cost", "Order Date", "Arrival Date")
         self.mrp_tree = ttk.Treeview(mrp_table_frame, columns=mrp_columns, show="headings")
 
         #Create Table
@@ -251,6 +265,9 @@ class App(ctk.CTk):
         self.grp_entry = ctk.CTkEntry(product_frame, placeholder_text="Enter Name of New Product's Group")
         self.grp_entry.pack(side="left", padx=10)
 
+        self.suggestions_box = ctk.CTkTextbox(product_frame)
+        self.product_tree.bind("<<TreeviewSelect>>", self.on_product_select)
+
         #------------- Logging Console ---------
         self.log_box = ctk.CTkTextbox(self, height=100)
         self.log_box.pack(padx=20, pady=(0, 20), fill="x", side="bottom")
@@ -268,7 +285,11 @@ class App(ctk.CTk):
         if not grp_name:
             self.log("No group selected")
             return
-        window_size = int(self.window_entry.get()) # will need to do error handling
+        try:
+            window_size = int(self.window_entry.get())
+        except ValueError:
+            self.log("Error: Window size must be a number.")
+            return
         sales_data = db.get_sales_data_by_group(grp_name)
         f = Forecaster(grp_name,sales_data)
         #Updating accuracy label on GUI
@@ -288,8 +309,16 @@ class App(ctk.CTk):
 
 
     def on_run_mrp_click(self):
-        window_size = int(self.mrp_window_entry.get())  # have to do error handling
-        days_to_predict = int(self.mrp_days_entry.get())
+        try:
+            window_size = int(self.mrp_window_entry.get())
+        except ValueError:
+            self.log("Error: Window size must be a number.")
+            return  # have to do error handling
+        try:
+            days_to_predict = int(self.mrp_days_entry.get())
+        except ValueError:
+            self.log("Error: Days to Predict size must be a number.")
+            return  # have to do error handling
         #Show the progress bar
         self.mrp_progress.pack(side="top", fill="x", padx=10, pady=5)
         self.mrp_progress.start()
@@ -315,7 +344,7 @@ class App(ctk.CTk):
             future_predictions = forecaster.predict_future_sequence(days_to_predict, window_size)
             all_forecasts[grp_name] = future_predictions
         # need to look at what period should be based on
-        mrp_plan = MRP(all_forecasts, self.inventory_list, self.lead_times, self.safety_stocks,days_to_predict, self.sales_mix)
+        mrp_plan = MRP(all_forecasts, self.inventory_list, self.lead_times, self.safety_stocks,days_to_predict, self.sales_mix,self.product_costs)
         procurement_plan = mrp_plan.order_plan()
         self.current_plan = procurement_plan
         #Schedule the GUI update back on the main thread
@@ -328,8 +357,11 @@ class App(ctk.CTk):
             #Column order
             row_data = (
                 order['Product'],
-                order['ProductGroup'],
                 order['QuantityToOrder'],
+                order['ProductGroup'],
+                order['Supplier'],
+                f"£{order['UnitCost']:.2f}",
+                f"£{order['TotalCost']:.2f}",
                 order['OrderPlacementDate'],
                 order['ExpectedArrivalDate']
             )
@@ -365,8 +397,16 @@ class App(ctk.CTk):
     def save_changes(self):
         self.log("Saving settings to database...")
         group_name = self.edit_group_label.cget("text")
-        new_lead_time = int(self.edit_lead_time.get())
-        new_safety_stock = int(self.edit_safety_stock.get())
+        try:
+            new_lead_time = int(self.edit_lead_time.get())
+        except ValueError:
+            self.log("Error: Lead time must be a number.")
+            return
+        try:
+            new_safety_stock = int(self.edit_safety_stock.get())
+        except ValueError:
+            self.log("Error: Safety Stock must be a number.")
+            return
         db.update_mrp_parameters(group_name, new_lead_time, new_safety_stock)
         self.refresh_settings_table()
 
@@ -423,10 +463,45 @@ class App(ctk.CTk):
         self.log_box.insert("end", f"[{timestamp}] {message}\n")
         self.log_box.see("end")  # Auto-scroll to the bottom
 
+    def on_product_select(self):
+        selected_item = self.product_tree.focus() #get item selected
+        if not selected_item:
+            return
+        row_values = self.product_tree.item(selected_item, 'values')
+        product_name = row_values[0]
+        product_name = self.new_product_name_entry.get()
+        new_list = db.get_product_suggestions(product_name)
+        self.suggestions_box.delete("0.0", "end")#clear textbox
+        if new_list:#insert suggestion
+            self.suggestions_box.insert("0.0", f"Suggestions for {product_name}:\n")
+            for item in new_list:
+                self.suggestions_box.insert("end", f"- {item}\n")
+        else:
+            self.suggestions_box.insert("0.0", f"No linked products found for {product_name}.")
 
-# --- Add these lines at the end ---
-if __name__ == "__main__":
-    app = App()
-    app.mainloop()
-
-#add a box that will show errors etc
+    def refresh_all_data(self):
+        self.all_group_names = db.get_all_group_names()
+        self.inventory_list = db.get_inventory_levels()
+        self.lead_times, self.safety_stocks = db.get_mrp_parameters()
+        self.sales_mix = db.get_sales_mix()
+        self.product_costs = db.get_product_costs()
+        self.refresh_settings_table()
+        self.refresh_product_table()
+        self.product_costs = db.get_product_costs()#clear
+        top_5 = db.get_top_selling_products()
+        bottom_5 = db.get_bottom_selling_products()
+        for product, amount in top_5:
+            self.top_sellers_box.insert("end", f"TOP 5 Products: {product} where {amount} were sold!\n")
+        for product, amount in bottom_5:
+            self.top_sellers_box.insert("end", f"BOTTOM 5 Products: {product} where {amount} were sold!\n")
+        self.alert_panel.delete("0.0", "end")#clear
+        for group_name in self.all_group_names:
+            inventory_qty = self.inventory_list.get(group_name, 0)
+            safety_qty = self.safety_stocks.get(group_name, 0)
+            if inventory_qty <= 0:
+                message = f"CRITICAL: Out of stock of {group_name}!\n"
+                self.alert_panel.insert("end", message, "critical")
+            elif inventory_qty <= safety_qty:
+                message = f"WARNING: Low stock for {group_name}!\n"
+                self.alert_panel.insert("end", message, "warning")
+        self.log("Data refresh complete.")

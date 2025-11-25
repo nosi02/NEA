@@ -1,6 +1,11 @@
 import sqlite3
 from datetime import datetime
 
+def create_connection():
+    #test to see if can connect to database
+    connection = sqlite3.connect('Data/project_data.db')
+    connection.close()
+
 def get_sales_data_by_group(group_name):
     connection = sqlite3.connect('Data/project_data.db') #connecting to database file
     cursor_obj = connection.cursor()
@@ -214,6 +219,37 @@ def get_sales_for_last_n_days(days=7):
     labels = list(sales_by_day.keys())
     data = list(sales_by_day.values())
     return labels, data
+
+def get_product_suggestions(product_name):
+    connection = sqlite3.connect('Data/project_data.db')  # connecting to database file
+    cursor_obj = connection.cursor()
+    query = ("""SELECT p2.ProductName FROM Products p1
+             JOIN LinkedProducts lp ON p1.ProductID = lp.PrimaryProductID
+             JOIN Products p2 ON lp.SuggestedProductID = p2.ProductID
+             WHERE p1.ProductName = ?""")
+    cursor_obj.execute(query, (product_name,))
+    results = cursor_obj.fetchall()
+    connection.close()
+    return results
+
+
+def get_product_costs():#find cheapest supplier
+    product_costs = {}
+    conn = sqlite3.connect('Data/project_data.db')
+    cursor = conn.cursor()
+    # This query finds the cheapest supplier for every product
+    query = (""" SELECT Products.ProductName, Suppliers.SupplierName, MIN(ProductSuppliers.UnitCost) as BestPrice
+        FROM ProductSuppliers
+        JOIN Products ON ProductSuppliers.ProductID = Products.ProductID
+        JOIN Suppliers ON ProductSuppliers.SupplierID = Suppliers.SupplierID
+        GROUP BY Products.ProductName; """)
+    cursor.execute(query)
+    results = cursor.fetchall()
+    conn.close()
+
+    for product, supplier, cost in results:
+        product_costs[product] = {'supplier': supplier, 'cost': cost}
+    return product_costs
 
 
 
