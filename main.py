@@ -69,3 +69,47 @@ else:
 print("\n--- Main Process Complete ---")
 
 #------ will need to create login hear---------------------
+
+       product_frame = ctk.CTkFrame(products_tab, width=200, height=200, corner_radius=10, bg_color="white")
+        product_frame.pack(pady=10, padx=10, fill="x")
+
+        Frame for the table
+        product_table_frame = ctk.CTkFrame(products_tab)
+       product_table_frame.pack(pady=10, padx=10, fill="both", expand=True)
+       product_columns = ("Product Name", "Product Group")
+        self.product_tree = ttk.Treeview(product_table_frame, columns=product_columns, show="headings")
+
+        Create Table
+        for col in product_columns:
+            self.product_tree.heading(col, text=col)
+            self.product_tree.column(col, width=150)
+        self.product_tree.pack(side="left", fill="both", expand=True)
+        self.refresh_product_table()  # so tab is not empty
+
+        # Add a scrollbar
+        scrollbar = ttk.Scrollbar(product_table_frame, orient="vertical", command=self.product_tree.yview)
+        self.product_tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+
+        # Make a button
+        self.add_product_button = ctk.CTkButton(product_frame, text="Add New Product", command=self.on_add_product_click)
+        self.add_product_button.pack(side="left", padx=10)
+
+        # Make a button
+        self.delete_product_button = ctk.CTkButton(product_frame, text="Delete Selected Product", command=self.on_delete_product_click)
+        self.delete_product_button.pack(side="left", padx=10)
+
+        # Make a Widget for New Product
+        self.new_product_name = ctk.CTkLabel(product_frame, text= "Product Name", font=("Arial", 12), fg_color="transparent")
+        self.new_product_name.pack(side="left", padx=10)
+        self.new_product_name_entry = ctk.CTkEntry(product_frame, placeholder_text="Enter Name of New Product")
+        self.new_product_name_entry.pack(side="left", padx=10)
+
+        # Make a Widget for New Product group
+        self.new_product_grp = ctk.CTkLabel(product_frame, text="Product Group", font=("Arial", 12), fg_color="transparent")
+        self.new_product_grp.pack(side="left", padx=10)
+        self.grp_entry = ctk.CTkEntry(product_frame, placeholder_text="Enter Name of New Product's Group")
+        self.grp_entry.pack(side="left", padx=10)
+
+        self.suggestions_box = ctk.CTkTextbox(product_frame)
+        self.product_tree.bind("<<TreeviewSelect>>", self.on_product_select)
