@@ -32,12 +32,15 @@ class App(ctk.CTk):
         self.plot_canvas = None
         # Creating a Window
         self.title("Inventory Manager")
-        self.geometry("1200x700")
+        self.geometry("1300x850")
         ctk.set_appearance_mode("system")
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
 
         #adding tabs
         tabview = ctk.CTkTabview(self, width=1150, height=650)
-        tabview.pack(padx=20, pady=20)
+        tabview.pack(padx=20, pady=(10,5), fill="both", expand=True)
         forecast_tab = tabview.add("Forecast & Analysis")
         mrp_tab = tabview.add("MRP Plan")
         settings_tab = tabview.add("Settings")
@@ -52,16 +55,16 @@ class App(ctk.CTk):
         forecast_tab.grid_rowconfigure(1, weight=1)#weekly chart
 
         #creating a frame
-        self.main_frame = ctk.CTkFrame(forecast_tab,width=200,height=200,corner_radius=10,bg_color="transparent")
+        self.main_frame = ctk.CTkFrame(forecast_tab)
         self.main_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
         # creating a label
-        label = ctk.CTkLabel(self.main_frame, text="Forecasting Controls", font=ctk.CTkFont(size=16, weight="bold"))
-        label.grid(padx=10, pady=12)
+        ctk.CTkLabel(self.main_frame, text="Forecasting Controls", font=ctk.CTkFont(size=16, weight="bold")).grid(row=0, column=0, columnspan=2, pady=10)
 
         #Creating a dropdown menu
+        ctk.CTkLabel(self.main_frame, text="Product Group:").grid(row=1, column=0, padx=10, pady=5, sticky="w")
         self.group_combobox = ctk.CTkComboBox(self.main_frame, values=db.get_all_group_names())
-        self.group_combobox.grid(row=1, column=0, pady=10, padx=20, sticky="ew")
+        self.group_combobox.grid(row=1, column=1, pady=5, padx=10, sticky="ew")
 
         #Make a button
         self.forecast_button = ctk.CTkButton(self.main_frame, text="Run Forecast & Analysis", command=self.on_run_forecast_click )
@@ -69,15 +72,14 @@ class App(ctk.CTk):
 
         # Make a Widget for Days to predict
         self.days_to_predict = ctk.CTkLabel( self.main_frame, text="Days to Predict", font=("Arial", 12), fg_color="transparent")
-        self.days_to_predict.grid(row=3, column=0, pady=(10,0), padx=10, sticky="w")
+        self.days_to_predict.grid(row=3, column=0, pady=5, padx=10, sticky="w")
         self.days_entry = ctk.CTkEntry( self.main_frame, placeholder_text="Enter How many days ahead you want to predict")
-        self.days_entry.grid(row=3, column=1, pady=(10,0), padx=10, sticky="ew")
+        self.days_entry.grid(row=3, column=1, pady=5, padx=10, sticky="ew")
 
         # Make a Widget for Window Size
-        self.window_label = ctk.CTkLabel( self.main_frame, text="Window Size", font=("Arial", 12), fg_color="transparent")
-        self.window_label.grid(row=2, column=0, pady=(10,0), padx=10, sticky="w")
+        self.window_label = ctk.CTkLabel( self.main_frame, text="Window Size", font=("Arial", 12), fg_color="transparent").grid(row=2, column=0, padx=10, pady=5, sticky="w")
         self.window_entry = ctk.CTkEntry( self.main_frame, placeholder_text="Enter Window Size")
-        self.window_entry.grid(row=2, column=1, pady=(10,0), padx=10, sticky="ew")
+        self.window_entry.grid(row=2, column=1, pady=5, padx=10, sticky="ew")
 
         #Make a label for Accuracy
         self.accuracy_label = ctk.CTkLabel(self.main_frame, text= "Accuracy (MAE): N/A | (RMSE): N/A", font=("Arial", 12), fg_color="transparent")
@@ -85,11 +87,18 @@ class App(ctk.CTk):
 
         # Make a button
         self.refresh_button = ctk.CTkButton(self.main_frame, text="Refresh All Data", command=self.refresh_all_data)
-        self.refresh_button.grid(row=4, column=0, columnspan=2, pady=10, padx=10, sticky="ew")
+        self.refresh_button.grid(row=6, column=0, columnspan=2, pady=10, padx=10, sticky="ew")
+
+        self.all_forecast_button = ctk.CTkButton(self.main_frame, text="Forecast for All", fg_color="#2c3e50",command=self.on_run_all_forecast)
+        self.all_forecast_button.grid(row=7, column=0, columnspan=2, pady=10, padx=10, sticky="ew")
+
+        # 4. Status Panels (Bottom)
+        status_container = ctk.CTkFrame(self)
+        status_container.pack(side="bottom", fill="x", padx=20, pady=10)
 
         #Make Alert Panel
-        self.alert_panel = ctk.CTkTextbox(forecast_tab)
-        self.alert_panel.grid(row=6, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+        self.alert_panel = ctk.CTkTextbox(status_container, height=80, width=400)
+        self.alert_panel.pack(side="left", padx=5, fill="both", expand=True)
         self.alert_panel.tag_config("critical", foreground="red")
         self.alert_panel.tag_config("warning", foreground="orange")
         for group_name in self.all_group_names:
@@ -103,8 +112,8 @@ class App(ctk.CTk):
                 self.alert_panel.insert("end", message, "warning")
 
         #Place for Top 5 seller analytics
-        self.top_sellers_box = ctk.CTkTextbox(forecast_tab)
-        self.top_sellers_box.grid(row=7, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+        self.top_sellers_box = ctk.CTkTextbox(status_container, height=80, width=400)
+        self.top_sellers_box.pack(side="left", padx=5, fill="both", expand=True)
         top_5 = db.get_top_selling_products()
         bottom_5 = db.get_bottom_selling_products()
         for product,amount in top_5:
@@ -114,8 +123,12 @@ class App(ctk.CTk):
 
 
         #Empty Frame where I will add a matplotlib chart
-        self.chart_frame = ctk.CTkFrame(forecast_tab, width=200, height=200, corner_radius=10, bg_color="transparent")
+        self.chart_frame = ctk.CTkFrame(forecast_tab)
         self.chart_frame.grid(row=0, column=1,rowspan=2, padx=10, pady=10, sticky="nsew")
+
+        forecast_tab.grid_columnconfigure(1, weight=3)
+        forecast_tab.grid_rowconfigure(0, weight=1)
+        forecast_tab.grid_rowconfigure(1, weight=1)
 
         #Second Chart for weekly sales
         self.weekly_chart_frame = ctk.CTkFrame(forecast_tab)
@@ -137,34 +150,35 @@ class App(ctk.CTk):
         #--- "MRP Plan" Tab ---------------
 
         # creating a frame for mrp tab
-        self.mrp_frame = ctk.CTkFrame(mrp_tab, width=200, height=200, corner_radius=10, bg_color="white")
+        self.mrp_frame = ctk.CTkFrame(mrp_tab)
         self.mrp_frame.pack(pady=10, padx=10, fill="x")
 
         #progress bar
-        self.mrp_progress = ctk.CTkProgressBar(self.mrp_frame, mode="indeterminate")
-        self.mrp_progress.pack(fill="x", padx=10, pady=5)
+        self.mrp_progress = ctk.CTkProgressBar(mrp_tab)
+        self.mrp_progress.pack(fill="x", padx=20, pady=5)
         self.mrp_progress.pack_forget()
 
         # Make a button
         self.mrp_button = ctk.CTkButton(self.mrp_frame, text="Generate Procurement Plan", command=self.on_run_mrp_click)
-        self.mrp_button.pack(side="left", padx=10, pady=10)
+        self.mrp_button.pack(side="left", padx=10)
 
         # Make a button
         self.export_button = ctk.CTkButton(self.mrp_frame, text="Export Plan to CSV", command=self.on_export_click)
-        self.export_button.pack(side="left", padx=10, pady=10)
+        self.export_button.pack(side="left", padx=10)
 
         # Create a new frame just for the entry widgets
-        entry_frame = ctk.CTkFrame(self.mrp_frame, fg_color="transparent")
-        entry_frame.pack(side="left", fill="x", expand=True, padx=10)
-        self.mrp_window_label = ctk.CTkLabel(entry_frame, text="Window Size:", font=("Arial", 12))
-        self.mrp_window_label.pack(side="left")
-        self.mrp_window_entry = ctk.CTkEntry(entry_frame, placeholder_text="e.g., 7")
+        #entry_frame = ctk.CTkFrame(self.mrp_frame, fg_color="transparent")
+        #entry_frame.pack(side="left", fill="x", expand=True, padx=10)
+        self.mrp_window_label = ctk.CTkLabel(self.mrp_frame, text="Window Size:").pack(side="left", padx=5)
+        self.mrp_window_entry = ctk.CTkEntry(self.mrp_frame, placeholder_text="e.g., 7",width=60)
         self.mrp_window_entry.pack(side="left", padx=5)
+        self.mrp_window_entry.insert(0, "7")
 
-        self.mrp_days_label = ctk.CTkLabel(entry_frame, text="Days to Predict:", font=("Arial", 12))
-        self.mrp_days_label.pack(side="left", padx=(10, 0))
-        self.mrp_days_entry = ctk.CTkEntry(entry_frame, placeholder_text="e.g., 30")
+        self.mrp_days_label = ctk.CTkLabel(self.mrp_frame, text="Days to Predict:", font=("Arial", 12))
+        self.mrp_days_label.pack(side="left", padx=5)
+        self.mrp_days_entry = ctk.CTkEntry(self.mrp_frame, placeholder_text="e.g., 30",width=60)
         self.mrp_days_entry.pack(side="left", padx=5)
+        self.mrp_days_entry.insert(0, "30")
 
         #Frame for the table
         mrp_table_frame = ctk.CTkFrame(mrp_tab)
@@ -175,7 +189,7 @@ class App(ctk.CTk):
         #Create Table
         for col in mrp_columns:
             self.mrp_tree.heading(col, text=col)
-            self.mrp_tree.column(col, width=150)
+            self.mrp_tree.column(col, width=100)
 
         self.mrp_tree.pack(side="left", fill="both", expand=True)
 
@@ -190,31 +204,36 @@ class App(ctk.CTk):
         self.setting_frame = ctk.CTkFrame(settings_tab)
         self.setting_frame.pack(pady=10, padx=10, fill="both", expand=True)
 
-        self.save_settings_button = ctk.CTkButton(self.setting_frame , text="Save Changes", command=self.save_changes)
-        self.save_settings_button.pack(pady=10)
+        edit_pane = ctk.CTkFrame(self.setting_frame, width=250)
+        edit_pane.pack(side="left", fill="y", padx=10, pady=10)
+
+        self.save_settings_button = ctk.CTkButton(edit_pane , text="Save Changes", command=self.save_changes)
+        self.save_settings_button.pack(pady=20,padx =10, fill="x")
 
         # Make a Widget for Lead Time and Safety Stock
-        self.edit_lead_time = ctk.CTkEntry(self.setting_frame, placeholder_text="Enter Lead Time")
-        self.edit_lead_time.pack(pady=5)
-        self.edit_safety_stock = ctk.CTkEntry(self.setting_frame, placeholder_text="Enter Safety Stock")
-        self.edit_safety_stock.pack(pady=5)
-        self.edit_group_label = ctk.CTkLabel(self.setting_frame, text="Select a group to edit")
-        self.edit_group_label.pack(pady=5)
+        self.edit_lead_time = ctk.CTkEntry(edit_pane, placeholder_text="Enter Lead Time")
+        self.edit_lead_time.pack(pady=5, padx=10, fill="x")
+        self.edit_safety_stock = ctk.CTkEntry(edit_pane, placeholder_text="Enter Safety Stock")
+        self.edit_safety_stock.pack(pady=5,padx=10, fill="x")
+        self.edit_group_label = ctk.CTkLabel(edit_pane, text="Select a group to edit",font=("Arial", 12, "bold"))
+        self.edit_group_label.pack(pady=10)
+
+        set_table_pane = ctk.CTkFrame(self.setting_frame)
+        set_table_pane.pack(side="right", fill="both", expand=True, padx=10, pady=10)
 
         # Create the Treeview for settings
         settings_columns = ("Product Group", "Lead Time (Days)", "Safety Stock (Units)")
-        self.settings_tree = ttk.Treeview(self.setting_frame, columns=settings_columns, show="headings")
+        self.settings_tree = ttk.Treeview(set_table_pane, columns=settings_columns, show="headings")
         self.settings_tree.pack(fill="both", expand=True)
-
-        self.settings_tree.bind("<<TreeviewSelect>>", self.on_settings_row_select)
-        self.setting_frame.bind("<<TreeviewSelect>>", self.on_settings_row_select)
-
-
         for col in settings_columns:
             self.settings_tree.heading(col, text=col)
             self.settings_tree.column(col, width=200)
 
+        self.settings_tree.bind("<<TreeviewSelect>>", self.on_settings_row_select)
+        self.setting_frame.bind("<<TreeviewSelect>>", self.on_settings_row_select)
+
         self.settings_tree.pack(fill="both", expand=True)
+        self.settings_tree.bind("<<TreeviewSelect>>", self.on_settings_row_select)
         for group_name in self.all_group_names:
             lead = self.lead_times.get(group_name, 3)
             stock = self.safety_stocks.get(group_name, 2)
@@ -224,7 +243,7 @@ class App(ctk.CTk):
             self.settings_tree.insert("", "end", values=row_data)
 
         # --- "Product Management" Tab ---
-        product_frame = ctk.CTkFrame(products_tab, width=200, height=200, corner_radius=10, bg_color="white")
+        product_frame = ctk.CTkFrame(products_tab)
         product_frame.pack(pady=10, padx=10, fill="x")
 
         # Frame for the table
@@ -246,35 +265,43 @@ class App(ctk.CTk):
         scrollbar.pack(side="right", fill="y")
 
         # Make a button
-        self.add_product_button = ctk.CTkButton(product_frame, text="Add New Product", command=self.on_add_product_click)
+        self.add_product_button = ctk.CTkButton(product_frame, text="Add New Product", command=self.on_add_product_click,width=60)
         self.add_product_button.pack(side="left", padx=10)
 
         # Make a button
-        self.delete_product_button = ctk.CTkButton(product_frame, text="Delete Selected Product", command=self.on_delete_product_click)
+        self.delete_product_button = ctk.CTkButton(product_frame, text="Delete Selected Product", command=self.on_delete_product_click,width=60)
         self.delete_product_button.pack(side="left", padx=10)
+
+        prod_table_frame = ctk.CTkFrame(products_tab)
+        prod_table_frame.pack(pady=10, padx=10, fill="both", expand=True)
 
         # Make a Widget for New Product
         self.new_product_name = ctk.CTkLabel(product_frame, text= "Product Name", font=("Arial", 12), fg_color="transparent")
         self.new_product_name.pack(side="left", padx=10)
         self.new_product_name_entry = ctk.CTkEntry(product_frame, placeholder_text="Enter Name of New Product")
-        self.new_product_name_entry.pack(side="left", padx=10)
+        self.new_product_name_entry.pack(side="left", padx=5)
 
         # Make a Widget for New Product group
         self.new_product_grp = ctk.CTkLabel(product_frame, text="Product Group", font=("Arial", 12), fg_color="transparent")
         self.new_product_grp.pack(side="left", padx=10)
         self.grp_entry = ctk.CTkEntry(product_frame, placeholder_text="Enter Name of New Product's Group")
-        self.grp_entry.pack(side="left", padx=10)
+        self.grp_entry.pack(side="left", padx=5)
 
-        self.suggestions_box = ctk.CTkTextbox(product_frame)
+        self.suggestions_box = ctk.CTkTextbox(product_frame, height=100)
         self.product_tree.bind("<<TreeviewSelect>>", self.on_product_select)
 
         #------------- Logging Console ---------
         self.log_box = ctk.CTkTextbox(self, height=100)
         self.log_box.pack(padx=20, pady=(0, 20), fill="x", side="bottom")
 
+        # Initial Load
+        self.refresh_all_data()
+
 
 
     def on_run_forecast_click(self):
+        for widget in self.chart_frame.winfo_children():
+            widget.destroy()
         if self.plot_canvas: #clean up old plot
             self.plot_canvas.get_tk_widget().destroy()
             self.plot_canvas = None  #
@@ -290,7 +317,15 @@ class App(ctk.CTk):
         except ValueError:
             self.log("Error: Window size must be a number.")
             return
+        try:
+            num_days = int(self.days_entry.get())
+        except ValueError:
+            self.log("Error: Days to Predict size must be a number.")
+            return
         sales_data = db.get_sales_data_by_group(grp_name)
+        if len(sales_data) < window_size:
+            self.log(f"Error: Not enough data for group '{grp_name}'.")
+            return
         f = Forecaster(grp_name,sales_data)
         #Updating accuracy label on GUI
         accuracy = f.calculate_accuracy(window_size)
@@ -299,13 +334,14 @@ class App(ctk.CTk):
         new_text = f"Accuracy (MAE): {mae:.2f} | (RMSE): {rmse:.2f}"
         self.accuracy_label.configure(text=new_text)
 
-        hist_forecast = f.generate_all_forecasts(window_size)
-        fig = f.plot_forecast(window_size,forward=hist_forecast)
+        future_data = f.predict_future_sequence(num_days, window_size)
+        fig = f.plot_forecast(window_size, forward=future_data)
         # creating new plot
-        canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(side="top", fill="both", expand=True)
-        self.plot_canvas = canvas
+        self.plot_canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+        self.plot_canvas.draw()
+        chart_widget = self.plot_canvas.get_tk_widget()
+        chart_widget.pack(side="top", fill="both", expand=True)
+        self.log(f"Forecast for {grp_name} updated successfully.")
 
 
     def on_run_mrp_click(self):
@@ -320,7 +356,7 @@ class App(ctk.CTk):
             self.log("Error: Days to Predict size must be a number.")
             return  # have to do error handling
         #Show the progress bar
-        self.mrp_progress.pack(side="top", fill="x", padx=10, pady=5)
+        self.mrp_progress.pack(fill="x", pady=5)
         self.mrp_progress.start()
         # message for when run mrp clicked
         self.log("Running MRP, please wait...")
@@ -339,10 +375,10 @@ class App(ctk.CTk):
                 self.after(0,self.log,f"Result: SKIPPED. Only {len(sales_list)} data points available.")
                 self.after(0,self.log,"-" * 35)
                 all_forecasts[grp_name] = [0] * days_to_predict  # Add a 0 forecast for the MRP
-                continue  # Move to the next group
-            forecaster = Forecaster(grp_name, sales_list)
-            future_predictions = forecaster.predict_future_sequence(days_to_predict, window_size)
-            all_forecasts[grp_name] = future_predictions
+            else:
+                forecaster = Forecaster(grp_name, sales_list)
+                future_predictions = forecaster.predict_future_sequence(days_to_predict, window_size)
+                all_forecasts[grp_name] = future_predictions  # Move to the next group
         # need to look at what period should be based on
         mrp_plan = MRP(all_forecasts, self.inventory_list, self.lead_times, self.safety_stocks,days_to_predict, self.sales_mix,self.product_costs)
         procurement_plan = mrp_plan.order_plan()
@@ -353,6 +389,8 @@ class App(ctk.CTk):
     def _populate_mrp_table(self, procurement_plan):
         all_items = self.mrp_tree.get_children()
         self.mrp_tree.delete(*all_items)
+        if not procurement_plan:
+            self.log("MRP: No orders required for the forecast period.")
         for order in procurement_plan:
             #Column order
             row_data = (
@@ -371,9 +409,11 @@ class App(ctk.CTk):
         self.mrp_progress.stop()
         self.mrp_progress.pack_forget()
         self.mrp_button.configure(state="normal", text="Generate Procurement Plan")
+        self.export_button.configure(state="normal" if procurement_plan else "disabled")
 
 
     def on_export_click(self):
+        if not self.current_plan: return
         # message for when run export clicked
         self.log("Exporting plan...")
         csv_file = "order_plan.csv"
@@ -383,6 +423,7 @@ class App(ctk.CTk):
                 writer = csv.DictWriter(csvfile, fieldnames=headers)
                 writer.writeheader()
                 writer.writerows(self.current_plan)
+        self.log(f"Plan exported to {csv_file}")
 
     def refresh_settings_table(self):
         # Clear the table
@@ -488,11 +529,13 @@ class App(ctk.CTk):
             self.suggestions_box.insert("1.0", f"No linked products found for {product_name}.")
 
     def refresh_all_data(self):
+        self.log("Refreshing system data...")
         self.all_group_names = db.get_all_group_names()
         self.inventory_list = db.get_inventory_levels()
         self.lead_times, self.safety_stocks = db.get_mrp_parameters()
         self.sales_mix = db.get_sales_mix()
         self.product_costs = db.get_product_costs()
+        self.group_combobox.configure(values=self.all_group_names)
         self.refresh_settings_table()
         self.refresh_product_table()
         #Clear and Repopulate Top Sellers Box
@@ -516,3 +559,42 @@ class App(ctk.CTk):
                 self.alert_panel.insert("end", f"WARNING: {group_name} is low ({inventory_qty})\n", "warning")
 
         self.log("All dashboard data has been refreshed.")
+    def on_run_all_forecast(self):
+        if self.plot_canvas:
+            self.plot_canvas.get_tk_widget().destroy()
+            self.plot_canvas = None
+        for widget in self.chart_frame.winfo_children():
+            widget.destroy()
+        try:
+            window_size = int(self.window_entry.get())
+        except ValueError:
+            self.log("Error: Window size must be a number.")
+            return  # have to do error handling
+        try:
+            num_days = int(self.days_entry.get())
+        except ValueError:
+            self.log("Error: Days to Predict size must be a number.")
+            return  # have to do error handling
+        self.log("Calculating total system demand across all groups...")
+        total_predicted_units = 0
+        groups_processed = 0
+        for grp in self.all_group_names:
+            sales_data = db.get_sales_data_by_group(grp)
+            # Only process if we have enough data for a WMA calculation
+            if len(sales_data) >= window_size:
+                f = Forecaster(grp, sales_data)
+                future_preds = f.predict_future_sequence(num_days, window_size)
+                total_predicted_units += sum(future_preds)
+                groups_processed += 1
+        self.accuracy_label.configure(text=f"Total System Forecast: {total_predicted_units:.0f} units")
+        summary_text = ( f"TOTAL SYSTEM DEMAND\n"
+            f"________________________\n\n"
+            f"Forecast Period: {num_days} Days\n"
+            f"Categories Calculated: {groups_processed}\n\n"
+            f"Total Predicted Unit Volume:\n"
+            f"{total_predicted_units:.0f} Units")
+        summary_label = ctk.CTkLabel(self.chart_frame,text=summary_text,font=ctk.CTkFont(size=22, weight="bold"),justify="center")
+        summary_label.pack(expand=True)
+        self.log(f"System-wide forecast complete. Total volume: {total_predicted_units:.0f} units.")
+
+

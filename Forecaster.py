@@ -3,6 +3,7 @@
 #-----------------------------------------------------------------------------------------
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
+from datetime import datetime, timedelta
 from datetime import datetime, date
 class Forecaster: #manage sales data for single product group
     def __init__(self, group_name ,grp_sales_data):
@@ -61,28 +62,40 @@ class Forecaster: #manage sales data for single product group
             try:# Ensure date format matches data (dd/mm/yy)
                 dates.append(datetime.strptime(item[0], '%d/%m/%y'))
                 quantity.append(item[1])
-            except (ValueError, TypeError):
+            except (ValueError, TypeError,IndexError):
                 continue
+        if not dates:
+            print("DEBUG: No dates were parsed. Check your database date format!")
+            return Figure()
         for i in forward:
-            forecast_qty.append(i[1])
-        forecast_dates = dates[window_size:]
-        real_qty = quantity[window_size:]
+            if isinstance(i, (list, tuple)):
+                forecast_qty.append(i[1])
+            else:
+                forecast_qty.append(i)
+        #forecast_dates = dates[window_size:]
+        #real_qty = quantity[window_size:]
         #handeling any potential errors
-        min_len = min(len(forecast_dates), len(real_qty), len(forecast_qty))
-        forecast_dates = forecast_dates[:min_len]
-        real_qty = real_qty[:min_len]
-        forecast_qty = forecast_qty[:min_len]
+        #min_len = min(len(forecast_dates), len(real_qty), len(forecast_qty))
+        #forecast_dates = forecast_dates[:min_len]
+        #real_qty = real_qty[:min_len]
+        #forecast_qty = forecast_qty[:min_len]
+        #Generate future dates
+        last_date = dates[-1]
+        future_dates = [last_date + timedelta(days=x + 1) for x in range(len(forecast_qty))]
         #line graph for predicted sales
         fig = Figure(figsize=(8, 4), dpi=100)
         ax = fig.add_subplot(111)
-        ax.plot(forecast_dates, real_qty,label='Actual Sales' )
+        ax.plot(dates, quantity,label='Historical Sales' , linewidth=1.5)
         #line graph for real sales
-        ax.plot(forecast_dates, forecast_qty,label='Forecasted Sales',linestyle='--')
+        combined_forecast_dates = [dates[-1]] + future_dates
+        combined_forecast_qty= [quantity[-1]] + forecast_qty
+        ax.plot(combined_forecast_dates, combined_forecast_qty,label='Predicted Sales',linestyle='--')
         ax.set_xlabel("Date")  # Label for the X-axis
         ax.set_ylabel("Quantity Sold")  # Label for the Y-axis
-        ax.set_title(f"Line graph of predicted sales vs real sales data for {self.name} in a {window_size} window")# Chart title
+        ax.set_title(f"Forecast for {self.name} ({window_size} Day Window)")#Chart title
         ax.legend()
         fig.autofmt_xdate()
+        fig.tight_layout()
         return fig
     def predict_future_sequence(self, num_days, window_size):
         temp_list = self.sales_list[-window_size:]
