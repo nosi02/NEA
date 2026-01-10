@@ -412,11 +412,18 @@ class App(ctk.CTk):
 
     def refresh_product_table(self):
         # Clear the table
-        self.product_tree.delete(*self.product_tree.get_children())
-        all_products = db.get_all_products()
-        # Repopulate
-        for product in all_products:
-            self.product_tree.insert("", "end", values=product)
+        # Clear existing rows to prevent duplication
+        for item in self.product_tree.get_children():
+            self.product_tree.delete(item)
+
+        try:
+            all_products = db.get_all_products()
+            for product in all_products:
+                # Ensure we only insert if product has data
+                if product:
+                    self.product_tree.insert("", "end", values=product)
+        except Exception as e:
+            self.log(f"Error refreshing products: {e}")
 
     def on_add_product_click(self):
         name  = self.new_product_name_entry.get()
@@ -463,21 +470,22 @@ class App(ctk.CTk):
         self.log_box.insert("end", f"[{timestamp}] {message}\n")
         self.log_box.see("end")  # Auto-scroll to the bottom
 
-    def on_product_select(self):
-        selected_item = self.product_tree.focus() #get item selected
+    def on_product_select(self, event=None):
+        selected_item = self.product_tree.focus()
         if not selected_item:
             return
         row_values = self.product_tree.item(selected_item, 'values')
+        if not row_values:
+            return
         product_name = row_values[0]
-        product_name = self.new_product_name_entry.get()
         new_list = db.get_product_suggestions(product_name)
-        self.suggestions_box.delete("0.0", "end")#clear textbox
+        self.suggestions_box.delete("1.0", "end")#clear textbox
         if new_list:#insert suggestion
-            self.suggestions_box.insert("0.0", f"Suggestions for {product_name}:\n")
+            self.suggestions_box.insert("1.0", f"Suggestions for {product_name}:\n")
             for item in new_list:
                 self.suggestions_box.insert("end", f"- {item}\n")
         else:
-            self.suggestions_box.insert("0.0", f"No linked products found for {product_name}.")
+            self.suggestions_box.insert("1.0", f"No linked products found for {product_name}.")
 
     def refresh_all_data(self):
         self.all_group_names = db.get_all_group_names()
@@ -487,21 +495,24 @@ class App(ctk.CTk):
         self.product_costs = db.get_product_costs()
         self.refresh_settings_table()
         self.refresh_product_table()
-        self.product_costs = db.get_product_costs()#clear
+        #Clear and Repopulate Top Sellers Box
+        self.top_sellers_box.delete("1.0", "end")
         top_5 = db.get_top_selling_products()
         bottom_5 = db.get_bottom_selling_products()
+        self.top_sellers_box.insert("end", "--- TOP 5 PRODUCTS ---\n")
         for product, amount in top_5:
-            self.top_sellers_box.insert("end", f"TOP 5 Products: {product} where {amount} were sold!\n")
+            self.top_sellers_box.insert("end", f"★ {product}: {amount} sold\n")
+        self.top_sellers_box.insert("end", "\n--- BOTTOM 5 PRODUCTS ---\n")
         for product, amount in bottom_5:
-            self.top_sellers_box.insert("end", f"BOTTOM 5 Products: {product} where {amount} were sold!\n")
-        self.alert_panel.delete("0.0", "end")#clear
+            self.top_sellers_box.insert("end", f"⚠ {product}: {amount} sold\n")
+        #Clear and Repopulate Alert Panel
+        self.alert_panel.delete("1.0", "end")
         for group_name in self.all_group_names:
             inventory_qty = self.inventory_list.get(group_name, 0)
             safety_qty = self.safety_stocks.get(group_name, 0)
             if inventory_qty <= 0:
-                message = f"CRITICAL: Out of stock of {group_name}!\n"
-                self.alert_panel.insert("end", message, "critical")
+                self.alert_panel.insert("end", f"CRITICAL: {group_name} is OUT OF STOCK!\n", "critical")
             elif inventory_qty <= safety_qty:
-                message = f"WARNING: Low stock for {group_name}!\n"
-                self.alert_panel.insert("end", message, "warning")
-        self.log("Data refresh complete.")
+                self.alert_panel.insert("end", f"WARNING: {group_name} is low ({inventory_qty})\n", "warning")
+
+        self.log("All dashboard data has been refreshed.")

@@ -1,4 +1,5 @@
 import sqlite3
+import hashlib
 from datetime import datetime
 
 def create_connection():
@@ -131,7 +132,7 @@ def update_mrp_parameters(group_name, new_lead_time, new_safety_stock):
 def get_all_products():
     connection = sqlite3.connect('Data/project_data.db') #connecting to database file
     cursor_obj = connection.cursor()
-    cursor_obj.execute(""" SELECT Products.ProductName, ProductGroups.GroupName FROM Products
+    cursor_obj.execute(""" SELECT DISTINCT Products.ProductName, ProductGroups.GroupName FROM Products
     INNER JOIN ProductGroups ON Products.GroupID = ProductGroups.GroupID
     ORDER BY Products.ProductName """)
     results = cursor_obj.fetchall() # creating a list of tuple of result
@@ -147,6 +148,7 @@ def add_new_product(name, group_name):
     # Find Group ID
     cursor_obj.execute(find_group, (group_name,))
     result = cursor_obj.fetchone()
+    connection.close()
     if result:
         group_id = result[0]
         # UPDATE
@@ -154,7 +156,6 @@ def add_new_product(name, group_name):
         # commit() to save any changes
         connection.commit()
         return f"Successfully updated parameters for {group_name}"
-    connection.close()
 
 def delete_product(product_name):
     connection = sqlite3.connect('Data/project_data.db')
@@ -223,14 +224,15 @@ def get_sales_for_last_n_days(days=7):
 def get_product_suggestions(product_name):
     connection = sqlite3.connect('Data/project_data.db')  # connecting to database file
     cursor_obj = connection.cursor()
-    query = ("""SELECT p2.ProductName FROM Products p1
-             JOIN LinkedProducts lp ON p1.ProductID = lp.PrimaryProductID
-             JOIN Products p2 ON lp.SuggestedProductID = p2.ProductID
-             WHERE p1.ProductName = ?""")
-    cursor_obj.execute(query, (product_name,))
+    query = (""" SELECT DISTINCT ProductName FROM Products 
+                 WHERE GroupID = (SELECT GroupID FROM Products WHERE ProductName = ?) 
+                 AND ProductName != ? 
+                 LIMIT 3 """)
+    cursor_obj.execute(query, (product_name,product_name))
     results = cursor_obj.fetchall()
+    final = [row[0] for row in results]
     connection.close()
-    return results
+    return final
 
 
 def get_product_costs():#find cheapest supplier
@@ -250,7 +252,38 @@ def get_product_costs():#find cheapest supplier
     for product, supplier, cost in results:
         product_costs[product] = {'supplier': supplier, 'cost': cost}
     return product_costs
+def hash_password(password):
+    #Converts plain text to hash
+    salt = "pharmacy_system_secure_2026_salt"
+    combined = password + salt
+    return hashlib.sha256(combined.encode()).hexdigest()
 
+def get_stored_hash():
+    #Fetches the admin password hash
+    # Initializes table with default if missing
+    connection = sqlite3.connect('Data/project_data.db')
+    cursor = connection.cursor()
+    cursor.execute(""" 
+        CREATE TABLE IF NOT EXISTS SystemSettings (SettingKey TEXT PRIMARY KEY, SettingValue TEXT) 
+    """)
+    cursor.execute("SELECT SettingValue FROM SystemSettings WHERE SettingKey = 'admin_password_hash'")
+    result = cursor.fetchone()
+    if result is None:
+        default_hash = hash_password("admin123")
+        cursor.execute("INSERT INTO SystemSettings VALUES ('admin_password_hash', ?)", (default_hash,))
+        connection.commit()
+        connection.close()
+        return default_hash
+    connection.close()
+    return result[0]
 
+def update_stored_password(new_password):
+    #saves a new password
+    new_hash = hash_password(new_password)
+    connection = sqlite3.connect('Data/project_data.db')
+    cursor = connection.cursor()
+    cursor.execute("UPDATE SystemSettings SET SettingValue = ? WHERE SettingKey = 'admin_password_hash'", (new_hash,))
+    connection.commit()
+    connection.close()
 
 
