@@ -102,13 +102,14 @@ class App(ctk.CTk):
         self.alert_panel.tag_config("critical", foreground="red")
         self.alert_panel.tag_config("warning", foreground="orange")
         for group_name in self.all_group_names:
-            inventory_qty = self.inventory_list.get(group_name, 0)
-            safety_qty = self.safety_stocks.get(group_name, 0)
+            clean_name = group_name.strip()
+            inventory_qty = self.inventory_list.get(clean_name, 0)
+            safety_qty = self.safety_stocks.get(clean_name, 0)
             if inventory_qty <= 0:
-                message = f"CRITICAL: Out of stock of {group_name}!\n"
+                message = f"CRITICAL: Out of stock of {clean_name}!\n"
                 self.alert_panel.insert("end", message, "critical")
             elif inventory_qty <= safety_qty:
-                message = f"WARNING: Low stock for {group_name}!\n"
+                message = f"WARNING: Low stock for {clean_name}!\n"
                 self.alert_panel.insert("end", message, "warning")
 
         #Place for Top 5 seller analytics
@@ -551,12 +552,13 @@ class App(ctk.CTk):
         #Clear and Repopulate Alert Panel
         self.alert_panel.delete("1.0", "end")
         for group_name in self.all_group_names:
-            inventory_qty = self.inventory_list.get(group_name, 0)
-            safety_qty = self.safety_stocks.get(group_name, 0)
+            clean_name = group_name.strip()
+            inventory_qty = self.inventory_list.get(clean_name, 0)
+            safety_qty = self.safety_stocks.get(clean_name, 0)
             if inventory_qty <= 0:
-                self.alert_panel.insert("end", f"CRITICAL: {group_name} is OUT OF STOCK!\n", "critical")
+                self.alert_panel.insert("end", f"CRITICAL: {clean_name} is OUT OF STOCK!\n", "critical")
             elif inventory_qty <= safety_qty:
-                self.alert_panel.insert("end", f"WARNING: {group_name} is low ({inventory_qty})\n", "warning")
+                self.alert_panel.insert("end", f"WARNING: {clean_name} is low ({inventory_qty})\n", "warning")
 
         self.log("All dashboard data has been refreshed.")
     def on_run_all_forecast(self):

@@ -32,13 +32,13 @@ def get_inventory_levels():
     inventory_dict = {}
     connection = sqlite3.connect('Data/project_data.db')
     cursor_obj = connection.cursor()
-    cursor_obj.execute(""" SELECT ProductGroups.GroupName,Inventory.QuantityOnHand FROM ProductGroups
-        INNER JOIN Inventory ON Inventory.GroupID = ProductGroups.GroupID  """  )
+    cursor_obj.execute(""" SELECT ProductGroups.GroupName,IFNULL(Inventory.QuantityOnHand,0)FROM ProductGroups
+        LEFT JOIN Inventory ON Inventory.GroupID = ProductGroups.GroupID """  )
     results = cursor_obj.fetchall()
     connection.close()
     # Process results into a dictionary of qty of each grp
     for grp_name,qty in results: #looping through list of tuple
-        inventory_dict[grp_name] = qty
+        inventory_dict[grp_name.strip()] = int(qty)
     return inventory_dict
 
 def get_mrp_parameters():
@@ -148,13 +148,13 @@ def add_new_product(name, group_name):
     # Find Group ID
     cursor_obj.execute(find_group, (group_name,))
     result = cursor_obj.fetchone()
-    connection.close()
     if result:
         group_id = result[0]
         # UPDATE
         cursor_obj.execute(insert_product, (name, group_id))
         # commit() to save any changes
         connection.commit()
+        connection.close()
         return f"Successfully updated parameters for {group_name}"
 
 def delete_product(product_name):

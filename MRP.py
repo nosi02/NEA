@@ -2,7 +2,7 @@ from Forecaster import Forecaster
 from datetime import datetime, timedelta
 
 class MRP:
-    def __init__(self, lead_time: object, forecasts: object, inventory: object, safety_stocks: object, period: object, sales_mix: object, product_costs ) -> object:
+    def __init__(self, forecasts, inventory, lead_time, safety_stocks, period, sales_mix, product_costs):
         self.inventory = inventory
         self.lead_times = lead_time
         self.safety_stock = safety_stocks
@@ -15,16 +15,19 @@ class MRP:
         today = datetime.now()
         for grp_name, daily_forecasts in self.forecast_sales.items():
             # get specific details for each product group
-            projected_inventory = self.inventory.get(grp_name, 0)
-            lead_time = self.lead_times.get(grp_name, 2)#added default fallback
-            safety_stock = self.safety_stock.get(grp_name, 2)
+            projected_inventory = float(self.inventory.get(grp_name, 0))
+            lead_time = int(self.lead_times.get(grp_name, 2)) #added default fallback
+            safety_stock = float(self.safety_stock.get(grp_name, 2))
             period_time = self.period_length
+            if sum(daily_forecasts) == 0 and projected_inventory > safety_stock:
+                continue
+
             cooldown = -1 # no new orders until after this day
             # predict inventory day by day
             #enumerate makes it a tuple so can loop through it
             for day_index, demand in enumerate(daily_forecasts):
                 projected_inventory -= demand
-                if projected_inventory <= safety_stock and day_index >= cooldown:
+                if (projected_inventory <= safety_stock or sum(daily_forecasts) >= 0) and day_index >= cooldown:
                     deficit = safety_stock - projected_inventory
                     future_demand_slice = daily_forecasts[day_index: day_index + lead_time + period_time]
                     demand_during_lead_time = sum(future_demand_slice)
@@ -40,10 +43,10 @@ class MRP:
                     expected_arrival_date = today + timedelta(days=day_index)
 
                     #create order list
-                    product_mix = self.sales_mix[grp_name]
+                    product_mix = self.sales_mix.get(grp_name, {})
                     for product_name, percentage in product_mix.items():
                         individual_quantity = round(quantity_to_order * percentage)
-                        cost_info = self.product_costs.get(product_name, {'supplier': 'Unknown', 'cost': 0})
+                        cost_info = self.product_costs.get(product_name, {})
                         unit_cost = cost_info.get('cost', 0.0)
                         supplier_name = cost_info.get('supplier', 'Unknown')
                         total_estimated_cost = individual_quantity * unit_cost
