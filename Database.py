@@ -19,13 +19,13 @@ def get_sales_data_by_group(group_name):
     #Sort the data by date
     sorted_data = []
     for date_str,qty in results:
-        date_obj = datetime.strptime(date_str, '%d/%m/%y')
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
         sorted_data.append((date_obj, qty))
     sorted_data.sort()
     #convert dates back to strings
     final_data_list = []
     for date_obj, qty in sorted_data:
-        final_data_list.append((date_obj.strftime('%d/%m/%y'), qty))
+        final_data_list.append((date_obj.strftime('%Y-%m-%d'), qty))
     return final_data_list
 
 def get_inventory_levels():
@@ -105,7 +105,7 @@ def get_total_sales_per_day():
     # Process results into a dictionary of total sales for each data
     for date_str, total_qty in results:
         # Convert the date string (e.g., 'dd/mm/yy') to a datetime object
-        date_obj = datetime.strptime(date_str, '%d/%m/%y').date()
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
         sales_by_date[date_obj] = total_qty
     return sales_by_date
 
@@ -195,28 +195,26 @@ def get_bottom_selling_products(limit = 5):
 def get_sales_for_last_n_days(days=7):
     connection = sqlite3.connect('Data/project_data.db')  # connecting to database file
     cursor_obj = connection.cursor()
-    query = ("""WITH ConvertedSales AS 
-             (SELECT ('20' || substr(SaleDate, 7, 2) || '-' 
-             || substr(SaleDate, 4, 2) || '-' || substr(SaleDate, 1, 2)) AS RealDate,
-             QuantitySold  FROM Sales)
-             SELECT strftime('%w', RealDate), SUM(QuantitySold)
-             FROM ConvertedSales
-             WHERE RealDate >= date('now', '-7 days')
-             GROUP BY strftime('%w', RealDate)
-             ORDER BY strftime('%w', RealDate) ASC; """) #will need to refernce
+    query = ("""WITH CleanSales AS (SELECT CASE WHEN SaleDate LIKE '__/__/__' THEN 
+                        '20' || substr(SaleDate, 7, 2) || '-' || substr(SaleDate, 4, 2) || '-' || substr(SaleDate, 1, 2)
+                    ELSE SaleDate END AS FormattedDate,QuantitySold FROM Sales)
+        SELECT strftime('%w', FormattedDate) as DayIndex, SUM(QuantitySold) FROM CleanSales
+        WHERE FormattedDate >= date('now', '-30 days') GROUP BY DayIndex;""")
+    #will need to refernce
     cursor_obj.execute(query)
     results = cursor_obj.fetchall()
     connection.close()
-    day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
     sales_by_day = {}
     for day in day_names:
         sales_by_day[day] = 0
     for day_index, total_qty in results:
-        if day_index is None:
+        if day_index == '0' or day_index == 0 or day_index is None:
             continue
-        day_name = day_names[int(day_index)]
-        if total_qty is not None:
-            sales_by_day[day_name] = total_qty
+        idx = int(day_index) - 1
+        if 0 <= idx < len(day_names):
+            day_name = day_names[idx]
+            sales_by_day[day_name] = total_qty if total_qty else 0
     labels = list(sales_by_day.keys())
     data = list(sales_by_day.values())
     return labels, data
@@ -285,5 +283,54 @@ def update_stored_password(new_password):
     cursor.execute("UPDATE SystemSettings SET SettingValue = ? WHERE SettingKey = 'admin_password_hash'", (new_hash,))
     connection.commit()
     connection.close()
+
+
+def add_or_update_sale(product_name, qty, date_str):
+    connection = sqlite3.connect('Data/project_data.db')
+    cursor = connection.cursor()
+
+    # 1. Get ProductID from Name
+    cursor.execute("SELECT ProductID FROM Products WHERE ProductName = ?", (product_name,))
+    result = cursor.fetchone()
+
+    if not result:
+        connection.close()
+        return False, f"Product '{product_name}' not found in database."
+
+    product_id = result[0]
+
+    # 2. Check if a sale already exists for this product on this day (to "Update/Adjust")
+    cursor.execute("SELECT RowID FROM Sales WHERE ProductID = ? AND SaleDate = ?", (product_id, date_str))
+    existing_sale = cursor.fetchone()
+
+    if existing_sale:
+        # UPDATE/ADJUST existing record
+        cursor.execute("UPDATE Sales SET QuantitySold = ? WHERE RowID = ?", (qty, existing_sale[0]))
+    else:
+        # INSERT new record
+        cursor.execute("INSERT INTO Sales (ProductID, QuantitySold, SaleDate) VALUES (?, ?, ?)",
+                       (product_id, qty, date_str))
+
+    connection.commit()
+    connection.close()
+    return True, "Success"
+
+
+def bulk_import_sales_csv(file_path):
+    import csv
+    success_count = 0
+    errors = []
+
+    with open(file_path, mode='r') as file:
+        reader = csv.DictReader(file)  # Assumes headers: ProductName, Quantity, Date
+        for row in reader:
+            # We reuse the logic above to ensure cleaning/validation
+            success, msg = add_or_update_sale(row['ProductName'], row['Quantity'], row['Date'])
+            if success:
+                success_count += 1
+            else:
+                errors.append(row['ProductName'])
+
+    return success_count, errors
 
 

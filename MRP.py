@@ -38,9 +38,9 @@ class MRP:
                         continue
 
                     # figure out when order must be placed
-                    days_until_order = max(0, day_index - lead_time)
-                    order_placement_date = today + timedelta(days=days_until_order)
-                    expected_arrival_date = today + timedelta(days=day_index)
+                    wait_days = max(0, day_index - lead_time)
+                    order_date = today + timedelta(days=wait_days)
+                    arrival_date = order_date + timedelta(days=lead_time)
 
                     #create order list
                     product_mix = self.sales_mix.get(grp_name, {})
@@ -59,8 +59,8 @@ class MRP:
                             'Supplier': supplier_name,
                             'UnitCost': unit_cost,
                             'TotalCost': total_estimated_cost,
-                            'OrderPlacementDate': order_placement_date.strftime('%Y-%m-%d'),
-                            'ExpectedArrivalDate': expected_arrival_date.strftime('%Y-%m-%d')
+                            'OrderPlacementDate': order_date.strftime('%Y-%m-%d'),
+                            'ExpectedArrivalDate': arrival_date.strftime('%Y-%m-%d')
                          }
                         planned_orders.append(individual_order_list)
 

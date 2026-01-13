@@ -60,7 +60,7 @@ class Forecaster: #manage sales data for single product group
         forecast_qty = []
         for item in self.sales_list:
             try:# Ensure date format matches data (dd/mm/yy)
-                dates.append(datetime.strptime(item[0], '%d/%m/%y'))
+                dates.append(datetime.strptime(item[0], '%Y-%m-%d'))
                 quantity.append(item[1])
             except (ValueError, TypeError,IndexError):
                 continue

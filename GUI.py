@@ -35,6 +35,10 @@ class App(ctk.CTk):
         self.geometry("1300x850")
         ctk.set_appearance_mode("system")
 
+        # ------------- Logging Console ---------
+        self.log_box = ctk.CTkTextbox(self, height=100)
+        self.log_box.pack(padx=20, pady=(0, 20), fill="x", side="bottom")
+
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
@@ -51,12 +55,12 @@ class App(ctk.CTk):
         # Create a 2-column layout
         forecast_tab.grid_columnconfigure(0, weight=1)  # Control panel column
         forecast_tab.grid_columnconfigure(1, weight=3)  # Chart column
-        forecast_tab.grid_rowconfigure(0, weight=1) # Full height for both
+        forecast_tab.grid_rowconfigure(0, weight=2) # Full height for both
         forecast_tab.grid_rowconfigure(1, weight=1)#weekly chart
 
         #creating a frame
         self.main_frame = ctk.CTkFrame(forecast_tab)
-        self.main_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        self.main_frame.grid(row=0, column=0, rowspan=2, padx=10, pady=10, sticky="nsew")
 
         # creating a label
         ctk.CTkLabel(self.main_frame, text="Forecasting Controls", font=ctk.CTkFont(size=16, weight="bold")).grid(row=0, column=0, columnspan=2, pady=10)
@@ -125,28 +129,11 @@ class App(ctk.CTk):
 
         #Empty Frame where I will add a matplotlib chart
         self.chart_frame = ctk.CTkFrame(forecast_tab)
-        self.chart_frame.grid(row=0, column=1,rowspan=2, padx=10, pady=10, sticky="nsew")
-
-        forecast_tab.grid_columnconfigure(1, weight=3)
-        forecast_tab.grid_rowconfigure(0, weight=1)
-        forecast_tab.grid_rowconfigure(1, weight=1)
+        self.chart_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
 
         #Second Chart for weekly sales
         self.weekly_chart_frame = ctk.CTkFrame(forecast_tab)
-        self.weekly_chart_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
-        weekday_labels, sales_totals = db.get_sales_for_last_n_days()
-        if sales_totals:  # Only plot if we have data
-            #Create a NEW Figure object
-            fig2 = Figure(figsize=(6, 3), dpi=100)
-            ax2 = fig2.add_subplot(111)
-            # Create the bar chart
-            ax2.bar(weekday_labels, sales_totals, color='cornflowerblue')
-            ax2.set_title("Sales This Week")
-            ax2.set_ylabel("Quantity Sold")
-            # Embed figure into its frame
-            canvas2 = FigureCanvasTkAgg(fig2, master=self.weekly_chart_frame)
-            canvas2.draw()
-            canvas2.get_tk_widget().pack(side="top", fill="both", expand=True)
+        self.weekly_chart_frame.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
         #--- "MRP Plan" Tab ---------------
 
@@ -290,10 +277,37 @@ class App(ctk.CTk):
 
         self.suggestions_box = ctk.CTkTextbox(product_frame, height=100)
         self.product_tree.bind("<<TreeviewSelect>>", self.on_product_select)
+        # Inside your tab setup
+        sales_mgmt_frame = ctk.CTkFrame(products_tab)
+        sales_mgmt_frame.pack(pady=10, padx=10, fill="x")
 
-        #------------- Logging Console ---------
-        self.log_box = ctk.CTkTextbox(self, height=100)
-        self.log_box.pack(padx=20, pady=(0, 20), fill="x", side="bottom")
+        ctk.CTkLabel(sales_mgmt_frame, text="Manual Sale Entry/Adjustment", font=("Arial", 14, "bold")).grid(row=0,
+                                                                                                             column=0,
+                                                                                                             columnspan=3,
+                                                                                                             pady=5)
+
+        # 1. Select Product (ComboBox)
+        self.sale_product_select = ctk.CTkComboBox(sales_mgmt_frame, values=self.all_group_names, width=200)
+        self.sale_product_select.grid(row=1, column=0, padx=5, pady=5)
+
+        # 2. Quantity
+        self.sale_qty_entry = ctk.CTkEntry(sales_mgmt_frame, placeholder_text="Qty", width=60)
+        self.sale_qty_entry.grid(row=1, column=1, padx=5, pady=5)
+
+        # 3. Date (Defaults to Today)
+        self.sale_date_entry = ctk.CTkEntry(sales_mgmt_frame, width=120)
+        self.sale_date_entry.insert(0, datetime.now().strftime('%Y-%m-%d'))
+        self.sale_date_entry.grid(row=1, column=2, padx=5, pady=5)
+
+        # 4. Action Button
+        self.save_sale_button = ctk.CTkButton(sales_mgmt_frame, text="Save Sale Record",
+                                              command=self.on_save_manual_sale)
+        self.save_sale_button.grid(row=1, column=3, padx=5, pady=5)
+
+        # 5. Bulk CSV Button
+        self.bulk_upload_button = ctk.CTkButton(sales_mgmt_frame, text="Bulk Import CSV", fg_color="green",
+                                                command=self.on_bulk_csv_import)
+        self.bulk_upload_button.grid(row=1, column=4, padx=5, pady=5)
 
         # Initial Load
         self.refresh_all_data()
@@ -436,6 +450,25 @@ class App(ctk.CTk):
             row_data = (group_name, self.lead_times[group_name], self.safety_stocks[group_name])
             self.settings_tree.insert("", "end", values=row_data)
 
+    def update_weekly_chart(self):
+        """Fetches sales data and redraws the weekly bar chart."""
+        if not self.winfo_exists(): return
+        if hasattr(self, 'weekly_canvas') and self.weekly_canvas:
+            self.weekly_canvas.get_tk_widget().destroy()
+        weekday_labels, sales_totals = db.get_sales_for_last_n_days()
+        fig2 = Figure(figsize=(5, 3), dpi=100)
+        ax2 = fig2.add_subplot(111)
+        # Draw the bars
+        ax2.bar(weekday_labels, sales_totals, color='cornflowerblue')
+        ax2.set_title("Sales Volume This Week", fontsize=10, fontweight='bold')
+        ax2.set_ylabel("Units Sold")
+        # Adjust layout so labels don't get cut off
+        fig2.tight_layout()
+        # Place it in the GUI frame
+        self.weekly_canvas = FigureCanvasTkAgg(fig2, master=self.weekly_chart_frame)
+        self.weekly_canvas.draw()
+        self.weekly_canvas.get_tk_widget().pack(side="top", fill="both", expand=True)
+
     def save_changes(self):
         self.log("Saving settings to database...")
         group_name = self.edit_group_label.cget("text")
@@ -539,6 +572,7 @@ class App(ctk.CTk):
         self.group_combobox.configure(values=self.all_group_names)
         self.refresh_settings_table()
         self.refresh_product_table()
+        self.update_weekly_chart()
         #Clear and Repopulate Top Sellers Box
         self.top_sellers_box.delete("1.0", "end")
         top_5 = db.get_top_selling_products()
@@ -589,14 +623,18 @@ class App(ctk.CTk):
                 total_predicted_units += sum(future_preds)
                 groups_processed += 1
         self.accuracy_label.configure(text=f"Total System Forecast: {total_predicted_units:.0f} units")
+        container = ctk.CTkFrame(self.chart_frame, fg_color="transparent")
+        container.pack(expand=True, fill="both", padx=20, pady=20)
         summary_text = ( f"TOTAL SYSTEM DEMAND\n"
             f"________________________\n\n"
             f"Forecast Period: {num_days} Days\n"
             f"Categories Calculated: {groups_processed}\n\n"
             f"Total Predicted Unit Volume:\n"
             f"{total_predicted_units:.0f} Units")
-        summary_label = ctk.CTkLabel(self.chart_frame,text=summary_text,font=ctk.CTkFont(size=22, weight="bold"),justify="center")
-        summary_label.pack(expand=True)
+        summary_label = ctk.CTkLabel(container, text=summary_text, font=ctk.CTkFont(size=16))
+        summary_label.pack(pady=10,expand=True)
+        total_label = ctk.CTkLabel(container,text=f"{total_predicted_units:,.0f} Units",font=ctk.CTkFont(size=48, weight="bold"),text_color="#3498db")
+        total_label.pack(pady=20)
         self.log(f"System-wide forecast complete. Total volume: {total_predicted_units:.0f} units.")
 
 
