@@ -285,52 +285,70 @@ def update_stored_password(new_password):
     connection.close()
 
 
-def add_or_update_sale(product_name, qty, date_str):
+def add_or_update_sale(group_name, qty, date_str):
     connection = sqlite3.connect('Data/project_data.db')
     cursor = connection.cursor()
-
-    # 1. Get ProductID from Name
-    cursor.execute("SELECT ProductID FROM Products WHERE ProductName = ?", (product_name,))
-    result = cursor.fetchone()
-
-    if not result:
+    try:
+        cursor.execute("SELECT GroupID FROM ProductGroups WHERE GroupName = ?", (group_name,))
+        group_result = cursor.fetchone()
+        if not group_result:
+            return False, f"Product Group '{group_name}' not found in database."
+        group_id = group_result[0]
+        # Find a ProductID for this group
+        cursor.execute("SELECT ProductID FROM Products WHERE GroupID = ? LIMIT 1", (group_id,))
+        prod_result = cursor.fetchone()
+        if not prod_result:
+            return False, f"Error: No products exist in the group '{group_name}' to link the sale to."
+        product_id = prod_result[0]
+        # Check if a sale is already recorded for this product/group on this date
+        cursor.execute("SELECT SaleID, QuantitySold FROM Sales WHERE ProductID = ? AND SaleDate = ?",
+                       (product_id, date_str))
+        existing_sale = cursor.fetchone()
+        delta = 0
+        if existing_sale:
+            sale_id, old_qty = existing_sale
+            delta = int(qty) - int(old_qty)
+            # update the existing sale record
+            cursor.execute("UPDATE Sales SET QuantitySold = ? WHERE SaleID = ?", (qty, sale_id))
+        else:
+            # insert a brand new sale record
+            delta = int(qty)
+            cursor.execute("INSERT INTO Sales (ProductID, QuantitySold, SaleDate) VALUES (?, ?, ?)",
+                           (product_id, qty, date_str))
+        # decrease the stock level by delta
+        cursor.execute("UPDATE Inventory SET QuantityOnHand = QuantityOnHand - ? WHERE GroupID = ?",
+                       (delta, group_id))
+        connection.commit()
+        return True, "Success"
+    except Exception as e:
+        connection.rollback()
+        return False, str(e)
+    finally:
         connection.close()
-        return False, f"Product '{product_name}' not found in database."
-
-    product_id = result[0]
-
-    # 2. Check if a sale already exists for this product on this day (to "Update/Adjust")
-    cursor.execute("SELECT RowID FROM Sales WHERE ProductID = ? AND SaleDate = ?", (product_id, date_str))
-    existing_sale = cursor.fetchone()
-
-    if existing_sale:
-        # UPDATE/ADJUST existing record
-        cursor.execute("UPDATE Sales SET QuantitySold = ? WHERE RowID = ?", (qty, existing_sale[0]))
-    else:
-        # INSERT new record
-        cursor.execute("INSERT INTO Sales (ProductID, QuantitySold, SaleDate) VALUES (?, ?, ?)",
-                       (product_id, qty, date_str))
-
-    connection.commit()
-    connection.close()
-    return True, "Success"
 
 
 def bulk_import_sales_csv(file_path):
     import csv
     success_count = 0
     errors = []
+    try:
+        with open(file_path, mode='r', encoding='utf-8-sig') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                try:
+                    q = int(row['Quantity'])
+                    # Treating the 'ProductName' column as Group Name as per requirements
+                    success, msg = add_or_update_sale(row['ProductName'], q, row['Date'])
+                    if success:
+                        success_count += 1
+                    else:
+                        errors.append(f"{row['ProductName']}: {msg}")
+                except ValueError:
+                    errors.append(f"{row['ProductName']}: Invalid quantity format")
+                except KeyError:
+                    errors.append("CSV Error: Missing required columns (ProductName, Quantity, Date)")
+                    break
 
-    with open(file_path, mode='r') as file:
-        reader = csv.DictReader(file)  # Assumes headers: ProductName, Quantity, Date
-        for row in reader:
-            # We reuse the logic above to ensure cleaning/validation
-            success, msg = add_or_update_sale(row['ProductName'], row['Quantity'], row['Date'])
-            if success:
-                success_count += 1
-            else:
-                errors.append(row['ProductName'])
-
-    return success_count, errors
-
-
+        return success_count, errors
+    except Exception as e:
+        return 0, [str(e)]

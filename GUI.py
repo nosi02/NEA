@@ -637,4 +637,38 @@ class App(ctk.CTk):
         total_label.pack(pady=20)
         self.log(f"System-wide forecast complete. Total volume: {total_predicted_units:.0f} units.")
 
+    def on_save_manual_sale(self):
+        prod_name = self.sale_product_select.get()
+        qty_str = self.sale_qty_entry.get()
+        date_val = self.sale_date_entry.get()
+        # Validation
+        if not qty_str.isdigit():
+            self.log("Error: Quantity must be a whole number.")
+            return
+        try:
+            success, message = db.add_or_update_sale(prod_name, int(qty_str), date_val)
+            if success:
+                self.log(f"Success: Recorded {qty_str} units for {prod_name}.")
+                self.refresh_all_data()  # Refresh charts to show new data
+            else:
+                self.log(f"DB Error: {message}")
+        except Exception as e:
+            self.log(f"System Error: {e}")
 
+    def on_bulk_csv_import(self):
+        from tkinter import filedialog
+        file_path = filedialog.askopenfilename(title="Select Sales CSV",filetypes=[("CSV Files", "*.csv")])
+        if not file_path:
+            return
+        self.log(f"Importing from {file_path}...")
+        # run thread so the UI doesn't freeze
+        def run_import():
+            try:
+                count, errors = db.bulk_import_sales_csv(file_path)
+                self.after(0, self.log, f"Import Finished: {count} rows added.")
+                if errors:
+                    self.after(0, self.log, f"Skipped {len(errors)} items not in DB.")
+                self.after(0, self.refresh_all_data)
+            except Exception as e:
+                self.after(0, self.log, f"Import Failed: {e}")
+        threading.Thread(target=run_import, daemon=True).start()
